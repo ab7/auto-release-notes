@@ -53,6 +53,43 @@ class GithubRequestValidator:
         self._check_signature(signature, raw_data)
 
 
+class GithubPullRequestNoAction(Exception):
+    pass
+
+
+def update_release_notes(payload):
+    PR_CLOSED = 'closed'
+    DEFAULT_BRANCH = 'master'
+
+    # https://developer.github.com/v3/activity/events/types/#pullrequestevent
+    try:
+        action = payload['action']
+        merged = payload['pull_request']['merged']
+        merge_commit = payload['pull_request']['merge_commit_sha']
+        url = payload['pull_request']['html_url']
+        title = payload['pull_request']['title']
+        base = payload['pull_request']['base']['ref']
+    except KeyError:
+        message = f'Unexpected webhook payload: {payload}'
+        raise GithubRequestException(message)
+
+    merged_into_default = action == PR_CLOSED and merged is True and base == DEFAULT_BRANCH
+    if not merged_into_default:
+        message = f'PR not merged into default branch: '\
+                  f'action:{action}, merged:{merged}, base:{base}'
+        raise GithubPullRequestNoAction(message)
+
+    print('PR merged into the default branch')
+    return {
+        'action': action,
+        'merged': merged,
+        'merge_commit': merge_commit,
+        'url': url,
+        'title': title,
+        'base': base,
+    }
+
+
 def webhook_handler(request):
     try:
         GithubRequestValidator(GITHUB_WEBHOOK_SECRET).validate_webhook(request)
@@ -60,5 +97,15 @@ def webhook_handler(request):
         print(f'Webhook validation failed: {str(e)}')
         return '', 302
 
-    print('success!')
+    payload = request.get_json()
+    try:
+        result = update_release_notes(payload)
+    except GithubPullRequestNoAction as e:
+        print(f'No action: {str(e)}')
+        return '', 200
+    except GithubRequestException as e:
+        print(f'Failed to update release notes: {str(e)}')
+        return '', 502
+
+    print(result)
     return '', 200
