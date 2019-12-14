@@ -51,7 +51,8 @@ class GithubRequestValidator:
 def webhook_handler(request):
     try:
         GithubRequestValidator(GITHUB_WEBHOOK_SECRET).validate_webhook(request)
-    except GithubRequestException:
+    except GithubRequestException as e:
+        print(f'Webhook validation failed: {str(e)}')
         return '', 302
 
     print('success!')
