@@ -34,8 +34,13 @@ class GithubRequestValidator:
             raise GithubRequestException(message)
 
     def _check_signature(self, signature, raw_data):
+        try:
+            digest = signature.split('=')[1]
+        except IndexError:
+            message = f'Unexpected signature format: {signature}'
+            raise GithubRequestException(message)
         digest_maker = hmac.new(bytes(self.secret, 'utf-8'), raw_data, hashlib.sha1)
-        if signature.split('=')[1] != digest_maker.hexdigest():
+        if digest != digest_maker.hexdigest():
             message = f'Invalid signature: {signature}'
             raise GithubRequestException(message)
 
