@@ -9,6 +9,7 @@ verify_ssl = true
 flake8 = "*"
 pygithub = "*"
 google-cloud-kms = "*"
+semver = "*"
 
 [requires]
 python_version = "3.7"
