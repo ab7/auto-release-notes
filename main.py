@@ -1,9 +1,21 @@
 import os
+import base64
 import hmac
 import hashlib
 
+from google.cloud import kms
 
-GITHUB_SECRET = os.environ.get('GITHUB_SECRET')
+
+# https://dev.to/googlecloud/using-secrets-in-google-cloud-functions-5aem
+kms_client = kms.KeyManagementServiceClient()
+GITHUB_ACCESS_TOKEN = kms_client.decrypt(
+    os.environ['GITHUB_ACCESS_TOKEN_RESOURCE'],
+    base64.b64decode(os.environ['GITHUB_ACCESS_TOKEN']),
+).plaintext.decode('utf-8')
+GITHUB_WEBHOOK_SECRET = kms_client.decrypt(
+    os.environ['GITHUB_WEBHOOK_SECRET_RESOURCE'],
+    base64.b64decode(os.environ['GITHUB_WEBHOOK_SECRET']),
+).plaintext.decode('utf-8')
 
 
 class GithubRequestException(Exception):
@@ -36,9 +48,9 @@ class GithubRequestValidator:
         self._check_signature(signature, raw_data)
 
 
-def update_release_notes(request):
+def webhook_handler(request):
     try:
-        GithubRequestValidator(GITHUB_SECRET).validate_webhook(request)
+        GithubRequestValidator(GITHUB_WEBHOOK_SECRET).validate_webhook(request)
     except GithubRequestException:
         return '', 302
 
