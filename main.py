@@ -3,6 +3,7 @@ import base64
 import hmac
 import hashlib
 
+import semver
 from github import Github
 from google.cloud import kms
 
@@ -92,13 +93,18 @@ def update_release_notes(payload):
     except IndexError:
         # must be the first release
         tag = f'{TAG_PREFIX}{TAG_INITIAL}'
-        note = RELEASE_NOTE_FORMAT.format(message=title, url=url)
-        repo.create_git_release(tag, tag, note, draft=True)
+        body = RELEASE_NOTE_FORMAT.format(message=title, url=url)
+        repo.create_git_release(tag, tag, body, draft=True)
 
     if latest.draft is True:
         new_note = RELEASE_NOTE_FORMAT.format(message=title, url=url)
         new_notes = f'{latest.body}\n{new_note}'
         latest.update_release(latest.title, new_notes, draft=True)
+    else:
+        tag = latest.tag_name.replace(TAG_PREFIX, '')
+        new_tag = f'{TAG_PREFIX}{str(semver.parse_version_info(tag).bump_patch())}'
+        body = RELEASE_NOTE_FORMAT.format(message=title, url=url)
+        repo.create_git_release(new_tag, new_tag, body, draft=True)
 
     return latest
 
@@ -112,7 +118,7 @@ def webhook_handler(request):
 
     payload = request.get_json()
     try:
-        result = update_release_notes(payload)
+        update_release_notes(payload)
     except GithubPullRequestNoAction as e:
         print(f'No action: {str(e)}')
         return '', 200
@@ -120,5 +126,4 @@ def webhook_handler(request):
         print(f'Failed to update release notes: {str(e)}')
         return '', 502
 
-    print(result)
     return '', 200
