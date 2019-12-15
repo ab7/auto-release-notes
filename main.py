@@ -95,6 +95,11 @@ def update_release_notes(payload):
         note = RELEASE_NOTE_FORMAT.format(message=title, url=url)
         repo.create_git_release(tag, tag, note, draft=True)
 
+    if latest.draft is True:
+        new_note = RELEASE_NOTE_FORMAT.format(message=title, url=url)
+        new_notes = f'{latest.body}\n{new_note}'
+        latest.update_release(latest.title, new_notes, draft=True)
+
     return latest
 
 
